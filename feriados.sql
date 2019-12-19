@@ -91,3 +91,70 @@ DELIMITER ;
 /* exemplo */
 call p_preencher_feriados(2019);
 call p_preencher_feriados(2020);
+
+
+
+
+DROP FUNCTION IF EXISTS  f_dia_util;
+
+DELIMITER //
+CREATE FUNCTION f_dia_util(
+    p_data DATE
+)
+    RETURNS INTEGER
+    DETERMINISTIC
+    NO SQL
+    COMMENT 'Retorna se o dia é util (utiliza tabela de feriados com campo data)'
+BEGIN
+    Declare util Integer Default 1;
+    DECLARE fer Integer default 0;
+    IF WEEKDAY(p_data) in (5,6) THEN
+        SET util = 0;
+    end if;
+
+    SELECT 1 INTO fer FROM feriados WHERE data=p_data;
+    IF fer = 1 THEN
+        SET util = 0;
+    end if;
+    /* retornar se está na tabela de feriados */
+    return util;
+END;
+//
+DELIMITER ;
+
+DROP FUNCTION IF EXISTS  f_enesimo_dia_util;
+
+DELIMITER //
+CREATE FUNCTION f_enesimo_dia_util(
+    p_ano INTEGER,
+    p_mes INTEGER,
+    p_dia INTEGER
+)
+    RETURNS DATE
+    DETERMINISTIC
+    NO SQL
+    COMMENT 'Retorna o enésimo dia util do mês especificado (utiliza a função f_dia_util)'
+BEGIN
+    DECLARE data DATE DEFAULT STR_TO_DATE(CONCAT(p_ano,'-',p_mes,'-01'),'%Y-%c-%e');
+    DECLARE a INT Default 0;
+
+    simple_loop: LOOP
+        while f_dia_util(data) = 0 do
+            set data = date_add(data, interval 1 day);
+        end while;
+
+        SET a = a + 1;
+        IF a = p_dia THEN
+            LEAVE simple_loop;
+        END IF;
+
+        set data = date_add(data, interval 1 day);
+    END LOOP simple_loop;
+
+    return data;
+END //
+delimiter ;
+
+/* exemplo */
+select f_enesimo_dia_util(2019,1,5) data;
+select f_dia_util('2019-01-01') util;
