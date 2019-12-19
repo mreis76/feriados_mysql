@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS `feriados_moveis`
 
 DROP FUNCTION IF EXISTS f_easter;
 
+DELIMITER //
 CREATE FUNCTION f_easter(
     p_year YEAR
 )
@@ -50,6 +51,8 @@ BEGIN
 
     RETURN STR_TO_DATE(CONCAT(p_year, '-', v100 DIV 31, '-', (v100 % 31) + 1), '%Y-%c-%e');
 END;
+//
+DELIMITER ;
 
 /* feriados fixos nacionais */
 INSERT INTO `feriados_fixos` (`dia`, `mes`, `titulo`) VALUES
@@ -70,6 +73,7 @@ INSERT INTO `feriados_moveis` (`dias`, `titulo`) VALUES
 
 drop procedure if exists p_preencher_feriados;
 
+DELIMITER //
 create procedure p_preencher_feriados(p_year YEAR)
     COMMENT 'Preencher a tabela de feriados com os feriados recorrentes'
 BEGIN
@@ -81,6 +85,9 @@ BEGIN
         SELECT DATE_ADD(f_easter(p_year), interval fm.dias DAY), fm.titulo FROM feriados_moveis fm
         ON DUPLICATE KEY UPDATE titulo = fm.titulo;
 end;
+//
+DELIMITER ;
 
 /* exemplo */
 call p_preencher_feriados(2019);
+call p_preencher_feriados(2020);
