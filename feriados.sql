@@ -77,11 +77,11 @@ DELIMITER //
 create procedure p_preencher_feriados(p_year YEAR)
     COMMENT 'Preencher a tabela de feriados com os feriados recorrentes'
 BEGIN
-    INSERT INTO feriados (data, titulo)
+    INSERT INTO feriados (dia, titulo)
         SELECT STR_TO_DATE(CONCAT(p_year, '-', ff.mes, '-', ff.dia), '%Y-%c-%e'), ff.titulo FROM feriados_fixos ff
         ON DUPLICATE KEY UPDATE titulo = ff.titulo;
 
-    INSERT INTO feriados (data, titulo)
+    INSERT INTO feriados (dia, titulo)
         SELECT DATE_ADD(f_easter(p_year), interval fm.dias DAY), fm.titulo FROM feriados_moveis fm
         ON DUPLICATE KEY UPDATE titulo = fm.titulo;
 end;
@@ -91,9 +91,6 @@ DELIMITER ;
 /* exemplo */
 call p_preencher_feriados(2019);
 call p_preencher_feriados(2020);
-
-
-
 
 DROP FUNCTION IF EXISTS  f_dia_util;
 
@@ -122,6 +119,40 @@ END;
 //
 DELIMITER ;
 
+DROP FUNCTION IF EXISTS  f_adiciona_dia_util;
+
+DELIMITER //
+CREATE FUNCTION f_adiciona_dia_util(
+    p_data DATE,
+    p_dia INTEGER
+)
+    RETURNS DATE
+    DETERMINISTIC
+    NO SQL
+    COMMENT 'Retorna a data + n dias úteis (utiliza a função f_dia_util)'
+BEGIN
+    DECLARE data DATE DEFAULT p_data;
+    DECLARE a INT Default 0;
+
+    simple_loop: LOOP
+        while f_dia_util(data) = 0 do
+        set data = date_add(data, interval 1 day);
+        end while;
+
+        IF a = p_dia THEN
+            LEAVE simple_loop;
+        END IF;
+        SET a = a + 1;
+
+        set data = date_add(data, interval 1 day);
+    END LOOP simple_loop;
+
+    return data;
+END //
+delimiter ;
+
+
+
 DROP FUNCTION IF EXISTS  f_enesimo_dia_util;
 
 DELIMITER //
@@ -136,25 +167,12 @@ CREATE FUNCTION f_enesimo_dia_util(
     COMMENT 'Retorna o enésimo dia util do mês especificado (utiliza a função f_dia_util)'
 BEGIN
     DECLARE data DATE DEFAULT STR_TO_DATE(CONCAT(p_ano,'-',p_mes,'-01'),'%Y-%c-%e');
-    DECLARE a INT Default 0;
 
-    simple_loop: LOOP
-        while f_dia_util(data) = 0 do
-            set data = date_add(data, interval 1 day);
-        end while;
-
-        SET a = a + 1;
-        IF a = p_dia THEN
-            LEAVE simple_loop;
-        END IF;
-
-        set data = date_add(data, interval 1 day);
-    END LOOP simple_loop;
-
-    return data;
+    RETURN f_adiciona_dia_util(data, p_dia-1);
 END //
 delimiter ;
 
-/* exemplo */
-select f_enesimo_dia_util(2019,1,5) data;
+/* exemplos */
+select f_adiciona_dia_util('2019-12-19',4) data;
+select f_enesimo_dia_util(2019, 1, 1) data;
 select f_dia_util('2019-01-01') util;
